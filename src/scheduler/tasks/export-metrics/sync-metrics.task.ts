@@ -20,6 +20,8 @@ export class SyncMetricsTask {
 
     constructor(
         @InjectMetric(METRIC_NAMES.NODE_ONLINE_USERS) public nodeOnlineUsers: Gauge<string>,
+        @InjectMetric(METRIC_NAMES.NODE_INBOUND_ONLINE_USERS)
+        public nodeInboundOnlineUsers: Gauge<string>,
         @InjectMetric(METRIC_NAMES.NODE_STATUS) public nodeStatus: Gauge<string>,
         @InjectMetric(METRIC_NAMES.NODE_INBOUND_UPLOAD_BYTES)
         public nodeInboundUploadBytes: Counter<string>,
@@ -92,6 +94,7 @@ export class SyncMetricsTask {
 
             const allMetrics: (Gauge<string> | Counter<string>)[] = [
                 this.nodeOnlineUsers,
+                this.nodeInboundOnlineUsers,
                 this.nodeStatus,
                 this.nodeMemoryTotalBytes,
                 this.nodeMemoryFreeBytes,
