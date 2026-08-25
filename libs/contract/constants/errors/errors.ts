@@ -1292,6 +1292,9 @@ export const ERRORS = {
     CLONE_HOST_ERROR: {
         code: 'A258',
         message: 'Clone host error',
+    GET_INBOUND_USAGE_ERROR: {
+        code: 'A253',
+        message: 'Get inbound usage error',
         httpCode: 500,
     },
 } as const;
