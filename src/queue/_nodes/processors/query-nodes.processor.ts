@@ -113,16 +113,20 @@ export class QueryNodesQueueProcessor extends WorkerHost implements OnApplicatio
 
                     const ipsByAddress = new Map<string, Date>();
 
-                    for (const username of usernames) {
-                        const ipsListResponse = await this.axios.getIpsList(
-                            { userId: username },
-                            {
-                                address: node.address,
-                                port: node.port,
-                                proxyUrl: node.proxyUrl,
-                            },
-                        );
+                    const ipsListResponses = await Promise.all(
+                        usernames.map((username) =>
+                            this.axios.getIpsList(
+                                { userId: username },
+                                {
+                                    address: node.address,
+                                    port: node.port,
+                                    proxyUrl: node.proxyUrl,
+                                },
+                            ),
+                        ),
+                    );
 
+                    for (const ipsListResponse of ipsListResponses) {
                         if (!ipsListResponse.isOk || !ipsListResponse.response.ips.length) {
                             continue;
                         }
