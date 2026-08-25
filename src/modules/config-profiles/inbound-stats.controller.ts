@@ -10,11 +10,14 @@ import { RolesGuard } from '@common/guards/roles';
 import { ScopesGuard } from '@common/guards/scopes';
 import { errorHandler } from '@common/helpers/error-handler.helper';
 import { BANDWIDTH_STATS_INBOUNDS_CONTROLLER, CONTROLLERS_INFO } from '@libs/contracts/api';
-import { GetInboundUsageCommand } from '@libs/contracts/commands';
+import { GetInboundTopUsersUsageCommand, GetInboundUsageCommand } from '@libs/contracts/commands';
 import { ROLE } from '@libs/contracts/constants';
 
 import { ConfigProfileService } from './config-profile.service';
 import {
+    GetInboundTopUsersUsageParamDto,
+    GetInboundTopUsersUsageQueryDto,
+    GetInboundTopUsersUsageResponseDto,
     GetInboundUsageParamDto,
     GetInboundUsageQueryDto,
     GetInboundUsageResponseDto,
@@ -40,6 +43,23 @@ export class InboundStatsController {
         @Query() query: GetInboundUsageQueryDto,
     ): Promise<GetInboundUsageResponseDto> {
         const result = await this.configProfileService.getInboundUsage(param.uuid, query);
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+
+    @Endpoint({
+        command: GetInboundTopUsersUsageCommand,
+        httpCode: HttpStatus.OK,
+        type: GetInboundTopUsersUsageResponseDto,
+    })
+    async getInboundTopUsersUsage(
+        @Param() param: GetInboundTopUsersUsageParamDto,
+        @Query() query: GetInboundTopUsersUsageQueryDto,
+    ): Promise<GetInboundTopUsersUsageResponseDto> {
+        const result = await this.configProfileService.getInboundTopUsersUsage(param.uuid, query);
 
         const data = errorHandler(result);
         return {

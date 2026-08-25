@@ -1297,4 +1297,9 @@ export const ERRORS = {
         message: 'Get inbound usage error',
         httpCode: 500,
     },
+    GET_INBOUND_TOP_USERS_USAGE_ERROR: {
+        code: 'A254',
+        message: 'Get inbound top users usage error',
+        httpCode: 500,
+    },
 } as const;

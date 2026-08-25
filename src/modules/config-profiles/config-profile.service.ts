@@ -19,7 +19,11 @@ import { ConfigProfileWithInboundsAndNodesEntity } from './entities';
 import { ConfigProfileInboundWithSquadsEntity } from './entities/config-profile-inbound-with-squads.entity';
 import { ConfigProfileInboundEntity } from './entities/config-profile-inbound.entity';
 import { ConfigProfileEntity } from './entities/config-profile.entity';
-import { GetAllInboundsResponseModel, GetInboundUsageResponseModel } from './models';
+import {
+    GetAllInboundsResponseModel,
+    GetInboundTopUsersUsageResponseModel,
+    GetInboundUsageResponseModel,
+} from './models';
 import { GetConfigProfileByUuidResponseModel } from './models/get-config-profile-by-uuid.response.model';
 import { GetConfigProfilesResponseModel } from './models/get-config-profiles.response.model';
 import { GetSnippetsQuery } from './queries/get-snippets';
@@ -429,6 +433,42 @@ export class ConfigProfileService {
         } catch (error) {
             this.logger.error(error);
             return fail(ERRORS.GET_INBOUND_USAGE_ERROR);
+        }
+    }
+
+    public async getInboundTopUsersUsage(
+        inboundUuid: string,
+        query: {
+            start: string;
+            end: string;
+            topUsersLimit: number;
+        },
+    ): Promise<TResult<GetInboundTopUsersUsageResponseModel>> {
+        try {
+            const { start, end, topUsersLimit } = query;
+            const startDate = dayjs.utc(start).startOf('day').toDate();
+            const endDate = dayjs.utc(end).endOf('day').toDate();
+
+            const [topUsers, onlineByInbound] = await Promise.all([
+                this.configProfileRepository.getInboundTopUsersUsage({
+                    inboundUuid,
+                    start: startDate,
+                    end: endDate,
+                    limit: topUsersLimit,
+                }),
+                this.getOnlineUsersCountByInboundUuids([inboundUuid]),
+            ]);
+
+            return ok(
+                new GetInboundTopUsersUsageResponseModel({
+                    inboundUuid,
+                    onlineByNode: onlineByInbound.get(inboundUuid) ?? [],
+                    topUsers,
+                }),
+            );
+        } catch (error) {
+            this.logger.error(error);
+            return fail(ERRORS.GET_INBOUND_TOP_USERS_USAGE_ERROR);
         }
     }
 

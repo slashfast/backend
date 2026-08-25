@@ -11,6 +11,8 @@ import { TxKyselyService } from '@common/database';
 import { getKyselyUuid } from '@common/helpers';
 import { values } from '@common/helpers/kysely/values';
 
+import { IGetUniversalTopUser } from '@modules/nodes-user-usage-history/interfaces';
+
 import { BulkUpsertInboundUsageHistoryBuilder } from '../builders/bulk-upsert-inbound-usage-history';
 import { ConfigProfileConverter } from '../converters/config-profile.converter';
 import { ConfigProfileInboundWithSquadsEntity } from '../entities';
@@ -293,6 +295,31 @@ export class ConfigProfileRepository {
             nextCursor: hasMore ? rows[rows.length - 1].id.toString() : null,
             hasMore,
         };
+    }
+
+    public async getInboundTopUsersUsage(params: {
+        inboundUuid: string;
+        start: Date;
+        end: Date;
+        limit: number;
+    }): Promise<IGetUniversalTopUser[]> {
+        const { inboundUuid, start, end, limit } = params;
+
+        return await this.qb.kysely
+            .selectFrom('userInboundUsageHistory as h')
+            .innerJoin('users as u', 'u.id', 'h.userId')
+            .where('h.inboundUuid', '=', getKyselyUuid(inboundUuid))
+            .where('h.createdAt', '>=', start)
+            .where('h.createdAt', '<=', end)
+            .select([
+                'u.id as userId',
+                'u.username',
+                (eb) => eb.fn.sum<bigint>('h.totalBytes').as('total'),
+            ])
+            .groupBy(['u.id', 'u.username'])
+            .orderBy((eb) => eb.fn.sum<bigint>('h.totalBytes'), 'desc')
+            .limit(limit)
+            .execute();
     }
 
     public async getInboundsByProfileUuid(
