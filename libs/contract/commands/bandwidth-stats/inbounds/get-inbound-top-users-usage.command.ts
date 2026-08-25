@@ -11,7 +11,7 @@ export namespace GetInboundTopUsersUsageCommand {
         BANDWIDTH_STATS_ROUTES.INBOUNDS.GET_TOP_USERS(':uuid'),
         'get',
         'Get top users by traffic on this inbound for a period',
-        { scope: 'inbound-usage', kind: 'read' },
+        { scope: 'inbound-top-users-usage', kind: 'read' },
         'Returns the top users by total usage over the period on this inbound, ordered by traffic descending. Underlying usage data is flushed to the database roughly every 2 minutes. Also includes a live onlineByNode breakdown (~16s TTL), independent of the date range.',
     );
 
