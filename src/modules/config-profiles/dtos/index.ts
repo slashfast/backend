@@ -6,6 +6,7 @@ export * from './get-config-profile-by-uuid.dto';
 export * from './get-config-profiles.dto';
 export * from './get-inbound-top-users-usage.dto';
 export * from './get-inbound-usage.dto';
+export * from './get-inbound-user-usage.dto';
 export * from './get-inbounds-by-profile-uuid.dto';
 export * from './reorder-config-profiles.dto';
 export * from './snippets.dtos';

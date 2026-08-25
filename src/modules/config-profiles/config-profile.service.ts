@@ -8,6 +8,7 @@ import { QueryBus } from '@nestjs/cqrs';
 import { XRayConfig } from '@common/helpers/xray-config';
 import { RawCacheService } from '@common/raw-cache';
 import { fail, ok, TResult } from '@common/types';
+import { getDateRangeArrayUtil } from '@common/utils/get-date-range-array.util';
 import { diffInbounds } from '@common/utils/inbounds';
 import { CACHE_KEYS } from '@libs/contracts/constants';
 import { ERRORS } from '@libs/contracts/constants/errors';
@@ -23,6 +24,7 @@ import {
     GetAllInboundsResponseModel,
     GetInboundTopUsersUsageResponseModel,
     GetInboundUsageResponseModel,
+    GetInboundUserUsageResponseModel,
 } from './models';
 import { GetConfigProfileByUuidResponseModel } from './models/get-config-profile-by-uuid.response.model';
 import { GetConfigProfilesResponseModel } from './models/get-config-profiles.response.model';
@@ -436,6 +438,35 @@ export class ConfigProfileService {
         }
     }
 
+    public async getInboundUserUsage(
+        inboundUuid: string,
+        userId: number,
+        query: {
+            start: string;
+            end: string;
+        },
+    ): Promise<TResult<GetInboundUserUsageResponseModel>> {
+        try {
+            const { startDate, endDate, dates } = getDateRangeArrayUtil(
+                new Date(query.start),
+                new Date(query.end),
+            );
+
+            const days = await this.configProfileRepository.getInboundUserDailyUsage({
+                inboundUuid,
+                userId: BigInt(userId),
+                start: startDate,
+                end: endDate,
+                dates,
+            });
+
+            return ok(new GetInboundUserUsageResponseModel({ days }));
+        } catch (error) {
+            this.logger.error(error);
+            return fail(ERRORS.GET_INBOUND_USER_USAGE_ERROR);
+        }
+    }
+
     public async getInboundTopUsersUsage(
         inboundUuid: string,
         query: {
@@ -446,23 +477,30 @@ export class ConfigProfileService {
     ): Promise<TResult<GetInboundTopUsersUsageResponseModel>> {
         try {
             const { start, end, topUsersLimit } = query;
-            const startDate = dayjs.utc(start).startOf('day').toDate();
-            const endDate = dayjs.utc(end).endOf('day').toDate();
+            const { startDate, endDate, dates } = getDateRangeArrayUtil(
+                new Date(start),
+                new Date(end),
+            );
 
-            const [topUsers, onlineByInbound] = await Promise.all([
+            const [sparklineData, topUsers] = await Promise.all([
+                this.configProfileRepository.getInboundDailyTrafficSum(
+                    inboundUuid,
+                    startDate,
+                    endDate,
+                    dates,
+                ),
                 this.configProfileRepository.getInboundTopUsersUsage({
                     inboundUuid,
                     start: startDate,
                     end: endDate,
                     limit: topUsersLimit,
                 }),
-                this.getOnlineUsersCountByInboundUuids([inboundUuid]),
             ]);
 
             return ok(
                 new GetInboundTopUsersUsageResponseModel({
-                    inboundUuid,
-                    onlineByNode: onlineByInbound.get(inboundUuid) ?? [],
+                    categories: dates,
+                    sparklineData,
                     topUsers,
                 }),
             );

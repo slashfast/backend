@@ -322,6 +322,61 @@ export class ConfigProfileRepository {
             .execute();
     }
 
+    public async getInboundDailyTrafficSum(
+        inboundUuid: string,
+        start: Date,
+        end: Date,
+        dates: string[],
+    ): Promise<number[]> {
+        const query = Prisma.sql`
+        WITH daily_traffic AS (
+            SELECT
+                created_at::date AS date,
+                SUM(total_bytes) AS bytes
+            FROM user_inbound_usage_history
+            WHERE
+                inbound_uuid = ${inboundUuid}::uuid
+                AND created_at >= ${start}::date
+                AND created_at <= ${end}::date
+            GROUP BY created_at
+        )
+        SELECT
+            COALESCE(dt.bytes, 0) AS value
+        FROM unnest(${dates}::date[]) WITH ORDINALITY AS d(date, ord)
+        LEFT JOIN daily_traffic dt ON dt.date = d.date::date
+        ORDER BY d.ord;
+    `;
+
+        const result = await this.prisma.tx.$queryRaw<Array<{ value: bigint }>>(query);
+        return result.map((item) => Number(item.value));
+    }
+
+    public async getInboundUserDailyUsage(params: {
+        inboundUuid: string;
+        userId: bigint;
+        start: Date;
+        end: Date;
+        dates: string[];
+    }): Promise<{ date: string; totalBytes: number }[]> {
+        const { inboundUuid, userId, start, end, dates } = params;
+
+        const rows = await this.qb.kysely
+            .selectFrom('userInboundUsageHistory as h')
+            .where('h.inboundUuid', '=', getKyselyUuid(inboundUuid))
+            .where('h.userId', '=', userId)
+            .where('h.createdAt', '>=', start)
+            .where('h.createdAt', '<=', end)
+            .select((eb) => [
+                sql<string>`to_char(${eb.ref('h.createdAt')}, 'YYYY-MM-DD')`.as('date'),
+                'h.totalBytes as totalBytes',
+            ])
+            .execute();
+
+        const byDate = new Map(rows.map((row) => [row.date, Number(row.totalBytes)]));
+
+        return dates.map((date) => ({ date, totalBytes: byDate.get(date) ?? 0 }));
+    }
+
     public async getInboundsByProfileUuid(
         profileUuid: string,
     ): Promise<ConfigProfileInboundEntity[]> {

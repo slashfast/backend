@@ -6,17 +6,17 @@ import {
 } from '@modules/nodes-user-usage-history/interfaces';
 
 export class GetInboundTopUsersUsageResponseModel {
-    public readonly inboundUuid: string;
-    public readonly onlineByNode: { nodeUuid: string; count: number }[];
+    public readonly categories: string[];
+    public readonly sparklineData: number[];
     public readonly topUsers: IGetUniversalTopUserConverted[];
 
     constructor(data: {
-        inboundUuid: string;
-        onlineByNode: { nodeUuid: string; count: number }[];
+        categories: string[];
+        sparklineData: number[];
         topUsers: IGetUniversalTopUser[];
     }) {
-        this.inboundUuid = data.inboundUuid;
-        this.onlineByNode = data.onlineByNode;
+        this.categories = data.categories;
+        this.sparklineData = data.sparklineData;
         this.topUsers = data.topUsers.map((item) => ({
             color: colorFromId(item.userId),
             userId: Number(item.userId),

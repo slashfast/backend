@@ -10,7 +10,11 @@ import { RolesGuard } from '@common/guards/roles';
 import { ScopesGuard } from '@common/guards/scopes';
 import { errorHandler } from '@common/helpers/error-handler.helper';
 import { BANDWIDTH_STATS_INBOUNDS_CONTROLLER, CONTROLLERS_INFO } from '@libs/contracts/api';
-import { GetInboundTopUsersUsageCommand, GetInboundUsageCommand } from '@libs/contracts/commands';
+import {
+    GetInboundTopUsersUsageCommand,
+    GetInboundUsageCommand,
+    GetInboundUserUsageCommand,
+} from '@libs/contracts/commands';
 import { ROLE } from '@libs/contracts/constants';
 
 import { ConfigProfileService } from './config-profile.service';
@@ -21,6 +25,9 @@ import {
     GetInboundUsageParamDto,
     GetInboundUsageQueryDto,
     GetInboundUsageResponseDto,
+    GetInboundUserUsageParamDto,
+    GetInboundUserUsageQueryDto,
+    GetInboundUserUsageResponseDto,
 } from './dtos';
 
 @ApiBearerAuth('Authorization')
@@ -43,6 +50,27 @@ export class InboundStatsController {
         @Query() query: GetInboundUsageQueryDto,
     ): Promise<GetInboundUsageResponseDto> {
         const result = await this.configProfileService.getInboundUsage(param.uuid, query);
+
+        const data = errorHandler(result);
+        return {
+            response: data,
+        };
+    }
+
+    @Endpoint({
+        command: GetInboundUserUsageCommand,
+        httpCode: HttpStatus.OK,
+        type: GetInboundUserUsageResponseDto,
+    })
+    async getInboundUserUsage(
+        @Param() param: GetInboundUserUsageParamDto,
+        @Query() query: GetInboundUserUsageQueryDto,
+    ): Promise<GetInboundUserUsageResponseDto> {
+        const result = await this.configProfileService.getInboundUserUsage(
+            param.uuid,
+            param.userId,
+            query,
+        );
 
         const data = errorHandler(result);
         return {

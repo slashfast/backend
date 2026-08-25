@@ -12,7 +12,7 @@ export namespace GetInboundTopUsersUsageCommand {
         'get',
         'Get top users by traffic on this inbound for a period',
         { scope: 'inbound-top-users-usage', kind: 'read' },
-        'Returns the top users by total usage over the period on this inbound, ordered by traffic descending. Underlying usage data is flushed to the database roughly every 2 minutes. Also includes a live onlineByNode breakdown (~16s TTL), independent of the date range.',
+        'Returns the top users by total usage over the period on this inbound, ordered by traffic descending, plus the aggregated daily traffic sparkline for the whole inbound. Underlying usage data is flushed to the database roughly every 2 minutes.',
     );
 
     export const RequestParamSchema = z.object({
@@ -27,21 +27,11 @@ export namespace GetInboundTopUsersUsageCommand {
 
     export const ResponseSchema = z.object({
         response: z.object({
-            inboundUuid: z.uuid(),
-            onlineByNode: z
-                .array(
-                    z.object({
-                        nodeUuid: z.uuid(),
-                        count: z.number(),
-                    }),
-                )
-                .describe(
-                    'Live online users count for this inbound, broken down by node (~16s TTL)',
-                ),
+            categories: z.array(z.string()),
+            sparklineData: z.array(z.number()),
             topUsers: z.array(
                 z.object({
                     color: z.string(),
-                    userId: z.number(),
                     username: z.string(),
                     total: z.number(),
                 }),

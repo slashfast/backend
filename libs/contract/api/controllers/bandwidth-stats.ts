@@ -31,6 +31,7 @@ export const BANDWIDTH_STATS_ROUTES = {
     },
     INBOUNDS: {
         GET_USAGE: (uuid: string) => `${uuid}/usage`,
+        USER_USAGE: (uuid: string, userId: string) => `${uuid}/users/${userId}/usage`,
         GET_TOP_USERS: (uuid: string) => `${uuid}/top-users`,
     },
 } as const;
