@@ -2,9 +2,14 @@ import { Logger } from '@nestjs/common';
 import { IEventHandler, QueryBus } from '@nestjs/cqrs';
 import { EventsHandler } from '@nestjs/cqrs';
 
-import { AddUsersCommand as AddUsersToNodeCommandSdk } from '@remnawave/node-contract';
+import { AddUserCommand as AddUserToNodeCommandSdk } from '@remnawave/node-contract';
 
-import { isSS2022Method } from '@common/helpers/xray-config/ss-cipher';
+import { buildClientEmail } from '@common/helpers/xray-config/client-email';
+import {
+    getCipherTypeFromString,
+    getSsPassword,
+    isSS2022Method,
+} from '@common/helpers/xray-config/ss-cipher';
 import { getVlessFlowFromDbInbound } from '@common/utils/flow/get-vless-flow';
 
 import { ConfigProfileInboundEntity } from '@modules/config-profiles/entities';
@@ -49,9 +54,11 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
 
             for (const node of activeNodes) {
                 const activeTags = new Set(node.activeInbounds.map((ib) => ib.tag));
-
-                const usersForNode: AddUsersToNodeCommandSdk.Request['users'] = [];
-                const usersToRemove: Array<{ userId: string; hashUuid: string }> = [];
+                const nodeConnectionOpts = {
+                    address: node.address,
+                    port: node.port,
+                    proxyUrl: node.proxyUrl,
+                };
 
                 for (const user of usersResult.response) {
                     const { id, trojanPassword, vlessUuid, ssPassword, inbounds } = user;
@@ -60,68 +67,75 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
 
                     const filteredInbounds = inbounds.filter((ib) => activeTags.has(ib.tag));
 
+                    // AddUsersCommand cannot carry a different email for each inbound,
+                    // so this path sends one request per user.
                     if (filteredInbounds.length === 0) {
-                        usersToRemove.push({ userId: id.toString(), hashUuid: vlessUuid });
+                        for (const inbound of node.activeInbounds) {
+                            await this.nodesQueuesService.removeUserFromNode({
+                                data: {
+                                    username: buildClientEmail(id, inbound.uuid),
+                                    hashData: { vlessUuid },
+                                },
+                                node: nodeConnectionOpts,
+                            });
+                        }
                         continue;
                     }
 
-                    usersForNode.push({
-                        userData: {
-                            userId: id.toString(),
-                            hashUuid: vlessUuid,
-                            vlessUuid,
-                            trojanPassword,
-                            ssPassword,
-                        },
-                        inboundData: filteredInbounds.map((inbound) => {
+                    const userData: AddUserToNodeCommandSdk.Request = {
+                        hashData: { vlessUuid },
+                        data: filteredInbounds.map((inbound) => {
                             const inboundType = this.resolveInboundType(inbound);
+                            const username = buildClientEmail(id, inbound.uuid);
 
                             switch (inboundType) {
                                 case 'trojan':
-                                    return { type: inboundType, tag: inbound.tag };
+                                    return {
+                                        type: inboundType,
+                                        tag: inbound.tag,
+                                        username,
+                                        password: trojanPassword,
+                                    };
                                 case 'vless':
                                     return {
                                         type: inboundType,
                                         tag: inbound.tag,
+                                        username,
+                                        uuid: vlessUuid,
                                         flow: getVlessFlowFromDbInbound(inbound),
                                     };
                                 case 'hysteria':
                                     return {
                                         type: inboundType,
                                         tag: inbound.tag,
+                                        username,
+                                        password: vlessUuid,
                                     };
                                 case 'shadowsocks':
-                                    return { type: inboundType, tag: inbound.tag };
+                                    return {
+                                        type: inboundType,
+                                        tag: inbound.tag,
+                                        username,
+                                        password: ssPassword,
+                                        cipherType: getCipherTypeFromString(inbound.rawInbound),
+                                        ivCheck: false,
+                                    };
                                 case 'shadowsocks22':
-                                    return { type: inboundType, tag: inbound.tag };
+                                    return {
+                                        type: inboundType,
+                                        tag: inbound.tag,
+                                        username,
+                                        password: getSsPassword(ssPassword, true),
+                                    };
                                 default:
                                     throw new Error(`Unsupported inbound type: ${inboundType}`);
                             }
                         }),
-                    });
-                }
+                    };
 
-                if (usersForNode.length > 0) {
-                    const affectedInboundTags = [...activeTags];
-
-                    await this.nodesQueuesService.addUsersToNode({
-                        data: {
-                            affectedInboundTags,
-                            users: usersForNode,
-                        },
-                        node: { address: node.address, port: node.port, proxyUrl: node.proxyUrl },
-                    });
-                }
-
-                if (usersToRemove.length > 0) {
-                    await this.nodesQueuesService.removeUsersFromNode({
-                        data: {
-                            users: usersToRemove.map((u) => ({
-                                userId: u.userId,
-                                hashUuid: u.hashUuid,
-                            })),
-                        },
-                        node: { address: node.address, port: node.port, proxyUrl: node.proxyUrl },
+                    await this.nodesQueuesService.addUserToNode({
+                        data: userData,
+                        node: nodeConnectionOpts,
                     });
                 }
             }

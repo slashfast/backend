@@ -4,6 +4,7 @@ import { EventsHandler } from '@nestjs/cqrs';
 
 import { AddUserCommand as AddUserToNodeCommandSdk } from '@remnawave/node-contract';
 
+import { buildClientEmail } from '@common/helpers/xray-config/client-email';
 import {
     getCipherTypeFromString,
     getSsPassword,
@@ -63,14 +64,14 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                         case 'trojan':
                             return {
                                 type: inboundType,
-                                username: id.toString(),
+                                username: buildClientEmail(id, inbound.uuid),
                                 password: trojanPassword,
                                 tag: inbound.tag,
                             };
                         case 'vless':
                             return {
                                 type: inboundType,
-                                username: id.toString(),
+                                username: buildClientEmail(id, inbound.uuid),
                                 uuid: vlessUuid,
                                 flow: getVlessFlowFromDbInbound(inbound),
                                 tag: inbound.tag,
@@ -78,7 +79,7 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                         case 'shadowsocks':
                             return {
                                 type: inboundType,
-                                username: id.toString(),
+                                username: buildClientEmail(id, inbound.uuid),
                                 password: ssPassword,
                                 tag: inbound.tag,
                                 cipherType: getCipherTypeFromString(inbound.rawInbound),
@@ -87,14 +88,14 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                         case 'shadowsocks22':
                             return {
                                 type: inboundType,
-                                username: id.toString(),
+                                username: buildClientEmail(id, inbound.uuid),
                                 password: getSsPassword(ssPassword, true),
                                 tag: inbound.tag,
                             };
                         case 'hysteria':
                             return {
                                 type: inboundType,
-                                username: id.toString(),
+                                username: buildClientEmail(id, inbound.uuid),
                                 password: vlessUuid,
                                 tag: inbound.tag,
                             };
@@ -117,19 +118,25 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                 };
 
                 if (filteredData.data.length === 0) {
-                    await this.nodesQueuesService.removeUserFromNode({
-                        data: {
-                            username: id.toString(),
-                            hashData: {
-                                vlessUuid: event.prevVlessUuid || vlessUuid,
+                    // We don't know which of the node's inbounds the user was
+                    // previously added to (email is now per-inbound), so we try
+                    // removing from all of them — no-ops on inbounds the user
+                    // was never a member of.
+                    for (const inbound of node.activeInbounds) {
+                        await this.nodesQueuesService.removeUserFromNode({
+                            data: {
+                                username: buildClientEmail(id, inbound.uuid),
+                                hashData: {
+                                    vlessUuid: event.prevVlessUuid || vlessUuid,
+                                },
                             },
-                        },
-                        node: {
-                            address: node.address,
-                            port: node.port,
-                            proxyUrl: node.proxyUrl,
-                        },
-                    });
+                            node: {
+                                address: node.address,
+                                port: node.port,
+                                proxyUrl: node.proxyUrl,
+                            },
+                        });
+                    }
 
                     continue;
                 }
