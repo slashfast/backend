@@ -60,6 +60,8 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                     proxyUrl: node.proxyUrl,
                 };
 
+                const usersToRemove: { id: bigint; vlessUuid: string }[] = [];
+
                 for (const user of usersResult.response) {
                     const { id, trojanPassword, vlessUuid, ssPassword, inbounds } = user;
 
@@ -70,15 +72,7 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                     // AddUsersCommand cannot carry a different email for each inbound,
                     // so this path sends one request per user.
                     if (filteredInbounds.length === 0) {
-                        for (const inbound of node.activeInbounds) {
-                            await this.nodesQueuesService.removeUserFromNode({
-                                data: {
-                                    username: buildClientEmail(id, inbound.uuid),
-                                    hashData: { vlessUuid },
-                                },
-                                node: nodeConnectionOpts,
-                            });
-                        }
+                        usersToRemove.push({ id, vlessUuid });
                         continue;
                     }
 
@@ -137,6 +131,20 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                         data: userData,
                         node: nodeConnectionOpts,
                     });
+                }
+
+                if (usersToRemove.length > 0) {
+                    for (const inbound of node.activeInbounds) {
+                        await this.nodesQueuesService.removeUsersFromNode({
+                            data: {
+                                users: usersToRemove.map((user) => ({
+                                    userId: buildClientEmail(user.id, inbound.uuid),
+                                    hashUuid: user.vlessUuid,
+                                })),
+                            },
+                            node: nodeConnectionOpts,
+                        });
+                    }
                 }
             }
         } catch (error) {
