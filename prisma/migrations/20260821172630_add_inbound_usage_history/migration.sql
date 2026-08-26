@@ -4,7 +4,7 @@ CREATE TABLE "user_inbound_usage_history" (
     "user_id" BIGINT NOT NULL,
     "total_bytes" BIGINT NOT NULL,
     "created_at" DATE NOT NULL DEFAULT CURRENT_DATE,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT now(),
 
     CONSTRAINT "user_inbound_usage_history_pkey" PRIMARY KEY ("inbound_uuid","created_at","user_id")
 );
