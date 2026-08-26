@@ -30,6 +30,8 @@ export class RemoveUsersFromNodeHandler implements IEventHandler<RemoveUsersFrom
             // only target one inbound's emails at a time. We batch all users
             // per (node, inbound) pair instead of per node — still one call per
             // inbound rather than one call per user.
+            const requests: Promise<unknown>[] = [];
+
             for (const node of nodes) {
                 const inbounds =
                     node.activeInbounds.length > 0
@@ -44,12 +46,20 @@ export class RemoveUsersFromNodeHandler implements IEventHandler<RemoveUsersFrom
                         })),
                     };
 
-                    await this.nodesQueuesService.removeUsersFromNode({
-                        data: userData,
-                        node: { address: node.address, port: node.port, proxyUrl: node.proxyUrl },
-                    });
+                    requests.push(
+                        this.nodesQueuesService.removeUsersFromNode({
+                            data: userData,
+                            node: {
+                                address: node.address,
+                                port: node.port,
+                                proxyUrl: node.proxyUrl,
+                            },
+                        }),
+                    );
                 }
             }
+
+            await Promise.all(requests);
 
             return;
         } catch (error) {

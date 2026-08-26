@@ -61,6 +61,7 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                 };
 
                 const usersToRemove: { id: bigint; vlessUuid: string }[] = [];
+                const pendingRequests: Promise<unknown>[] = [];
 
                 for (const user of usersResult.response) {
                     const { id, trojanPassword, vlessUuid, ssPassword, inbounds } = user;
@@ -127,25 +128,31 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                         }),
                     };
 
-                    await this.nodesQueuesService.addUserToNode({
-                        data: userData,
-                        node: nodeConnectionOpts,
-                    });
+                    pendingRequests.push(
+                        this.nodesQueuesService.addUserToNode({
+                            data: userData,
+                            node: nodeConnectionOpts,
+                        }),
+                    );
                 }
 
                 if (usersToRemove.length > 0) {
                     for (const inbound of node.activeInbounds) {
-                        await this.nodesQueuesService.removeUsersFromNode({
-                            data: {
-                                users: usersToRemove.map((user) => ({
-                                    userId: buildClientEmail(user.id, inbound.uuid),
-                                    hashUuid: user.vlessUuid,
-                                })),
-                            },
-                            node: nodeConnectionOpts,
-                        });
+                        pendingRequests.push(
+                            this.nodesQueuesService.removeUsersFromNode({
+                                data: {
+                                    users: usersToRemove.map((user) => ({
+                                        userId: buildClientEmail(user.id, inbound.uuid),
+                                        hashUuid: user.vlessUuid,
+                                    })),
+                                },
+                                node: nodeConnectionOpts,
+                            }),
+                        );
                     }
                 }
+
+                await Promise.all(pendingRequests);
             }
         } catch (error) {
             this.logger.error(`Error in Event AddUsersToNodeHandler: ${error}`);
