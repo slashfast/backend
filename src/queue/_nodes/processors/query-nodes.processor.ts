@@ -245,9 +245,10 @@ export class QueryNodesQueueProcessor extends WorkerHost implements OnApplicatio
                 }
 
                 for (const ip of user.ips) {
+                    const lastSeen = new Date(ip.lastSeen);
                     const existing = ipsByAddress.get(ip.ip);
-                    if (!existing || ip.lastSeen > existing) {
-                        ipsByAddress.set(ip.ip, ip.lastSeen);
+                    if (!existing || lastSeen > existing) {
+                        ipsByAddress.set(ip.ip, lastSeen);
                     }
                 }
             }
