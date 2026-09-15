@@ -31,7 +31,9 @@ export namespace GetInboundUserUsageCommand {
             days: z.array(
                 z.object({
                     date: z.string().describe('Day (YYYY-MM-DD)'),
-                    totalBytes: z.number().describe('Used bytes on this inbound that day (raw bytes)'),
+                    totalBytes: z
+                        .number()
+                        .describe('Used bytes on this inbound that day (raw bytes)'),
                 }),
             ),
         }),

@@ -51,9 +51,7 @@ export class GetPreparedConfigWithUsersHandler implements IQueryHandler<
             }
 
             const activeInboundsTags = new Set(activeInbounds.map((inbound) => inbound.tag));
-            const tagToUuid = new Map(
-                activeInbounds.map((inbound) => [inbound.tag, inbound.uuid]),
-            );
+            const tagToUuid = new Map(activeInbounds.map((inbound) => [inbound.tag, inbound.uuid]));
 
             config = new XRayConfig(configProfile.response.config as object);
 
