@@ -2,8 +2,12 @@ import { Job } from 'bullmq';
 
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
+import { QueryBus } from '@nestjs/cqrs';
 
 import { AxiosService } from '@common/axios';
+import { buildClientEmail, parseClientEmail } from '@common/helpers/xray-config/client-email';
+
+import { GetAllNodesQuery } from '@modules/nodes/queries/get-all-nodes';
 
 import { QUEUES_NAMES } from '@queue/queue.enum';
 
@@ -16,7 +20,10 @@ import { IAddUserToNodePayload, IRemoveUserFromNodePayload } from '../interfaces
 export class NodeUsersQueueProcessor extends WorkerHost {
     private readonly logger = new Logger(NodeUsersQueueProcessor.name);
 
-    constructor(private readonly axios: AxiosService) {
+    constructor(
+        private readonly axios: AxiosService,
+        private readonly queryBus: QueryBus,
+    ) {
         super();
     }
 
@@ -35,22 +42,41 @@ export class NodeUsersQueueProcessor extends WorkerHost {
     private async handleAddUserToNode(job: Job<IAddUserToNodePayload>) {
         try {
             const { data, node, cleanupUsernames, legacyUsername } = job.data;
+            const cleanupInbounds = await this.getCleanupInbounds(job.data);
+            const { userId } = parseClientEmail(data.data[0].username);
+            const usernamesToCleanup = new Set([
+                userId,
+                ...cleanupInbounds.map((inbound) => buildClientEmail(BigInt(userId), inbound.uuid)),
+                ...(cleanupUsernames ?? []),
+                ...(legacyUsername ? [legacyUsername] : []),
+            ]);
 
-            const usernamesToCleanup = cleanupUsernames ?? (legacyUsername ? [legacyUsername] : []);
-
+            // Empty inboundData uses the node's add/update cleanup without dropping IP sockets.
+            // Restore the full tag list on every call: removing the last hash removes its tag.
             for (const username of usernamesToCleanup) {
-                const cleanupResult = await this.axios.deleteUser(
+                const cleanupResult = await this.axios.addUsers(
                     {
-                        username,
-                        hashData: { vlessUuid: data.hashData.vlessUuid },
+                        affectedInboundTags: cleanupInbounds.map((inbound) => inbound.tag),
+                        users: [
+                            {
+                                userData: {
+                                    userId: username,
+                                    hashUuid:
+                                        data.hashData.prevVlessUuid ?? data.hashData.vlessUuid,
+                                    vlessUuid: data.hashData.vlessUuid,
+                                    trojanPassword: '',
+                                    ssPassword: '',
+                                },
+                                inboundData: [],
+                            },
+                        ],
                     },
                     node,
                 );
 
-                if (!cleanupResult.isOk) {
-                    this.logger.warn(
-                        `Failed to remove user ${username} from Node ${node.address}:${node.port}: ${cleanupResult.message}`,
-                    );
+                if (!cleanupResult.isOk || !cleanupResult.response.success) {
+                    this.logger.error(`Failed to clean user ${username} before node sync`);
+                    return cleanupResult;
                 }
             }
 
@@ -71,6 +97,28 @@ export class NodeUsersQueueProcessor extends WorkerHost {
             this.logger.error(`Error handling "${NODES_JOB_NAMES.ADD_USER_TO_NODE}" job: ${error}`);
             return;
         }
+    }
+
+    private async getCleanupInbounds(payload: IAddUserToNodePayload) {
+        if (payload.cleanupInbounds) {
+            return payload.cleanupInbounds;
+        }
+
+        // Jobs queued before cleanupInbounds was added only contain the node address.
+        const nodes = await this.queryBus.execute(new GetAllNodesQuery());
+        if (!nodes.isOk) {
+            throw new Error('Failed to resolve inbounds for a queued user update');
+        }
+
+        const node = nodes.response.find(
+            (candidate) =>
+                candidate.address === payload.node.address && candidate.port === payload.node.port,
+        );
+        if (!node) {
+            throw new Error('Node for a queued user update no longer exists');
+        }
+
+        return node.activeInbounds;
     }
 
     private async handleRemoveUserFromNode(job: Job<IRemoveUserFromNodePayload>) {

@@ -131,12 +131,10 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                     pendingRequests.push(
                         this.nodesQueuesService.addUserToNode({
                             data: userData,
-                            cleanupUsernames: [
-                                id.toString(),
-                                ...node.activeInbounds.map((inbound) =>
-                                    buildClientEmail(id, inbound.uuid),
-                                ),
-                            ],
+                            cleanupInbounds: node.activeInbounds.map(({ uuid, tag }) => ({
+                                uuid,
+                                tag,
+                            })),
                             node: nodeConnectionOpts,
                         }),
                     );
