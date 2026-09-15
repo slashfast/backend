@@ -34,7 +34,24 @@ export class NodeUsersQueueProcessor extends WorkerHost {
 
     private async handleAddUserToNode(job: Job<IAddUserToNodePayload>) {
         try {
-            const { data, node } = job.data;
+            const { data, node, legacyUsername } = job.data;
+
+            if (legacyUsername) {
+                const cleanupResult = await this.axios.deleteUser(
+                    {
+                        username: legacyUsername,
+                        hashData: { vlessUuid: data.hashData.vlessUuid },
+                    },
+                    node,
+                );
+
+                if (!cleanupResult.isOk) {
+                    this.logger.warn(
+                        `Failed to remove legacy user ${legacyUsername} from Node ${node.address}:${node.port}: ${cleanupResult.message}`,
+                    );
+                }
+            }
+
             const result = await this.axios.addUser(data, {
                 address: node.address,
                 port: node.port,

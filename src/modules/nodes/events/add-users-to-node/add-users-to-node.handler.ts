@@ -131,12 +131,25 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                     pendingRequests.push(
                         this.nodesQueuesService.addUserToNode({
                             data: userData,
+                            legacyUsername: id.toString(),
                             node: nodeConnectionOpts,
                         }),
                     );
                 }
 
                 if (usersToRemove.length > 0) {
+                    pendingRequests.push(
+                        this.nodesQueuesService.removeUsersFromNode({
+                            data: {
+                                users: usersToRemove.map((user) => ({
+                                    userId: user.id.toString(),
+                                    hashUuid: user.vlessUuid,
+                                })),
+                            },
+                            node: nodeConnectionOpts,
+                        }),
+                    );
+
                     for (const inbound of node.activeInbounds) {
                         pendingRequests.push(
                             this.nodesQueuesService.removeUsersFromNode({

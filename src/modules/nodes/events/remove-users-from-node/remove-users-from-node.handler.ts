@@ -34,9 +34,7 @@ export class RemoveUsersFromNodeHandler implements IEventHandler<RemoveUsersFrom
 
             for (const node of nodes) {
                 const inbounds =
-                    node.activeInbounds.length > 0
-                        ? node.activeInbounds
-                        : [{ uuid: undefined }];
+                    node.activeInbounds.length > 0 ? node.activeInbounds : [{ uuid: undefined }];
 
                 for (const inbound of inbounds) {
                     const userData: RemoveUsersFromNodeCommandSdk.Request = {
@@ -57,6 +55,22 @@ export class RemoveUsersFromNodeHandler implements IEventHandler<RemoveUsersFrom
                         }),
                     );
                 }
+
+                requests.push(
+                    this.nodesQueuesService.removeUsersFromNode({
+                        data: {
+                            users: event.users.map((user) => ({
+                                userId: user.id.toString(),
+                                hashUuid: user.vlessUuid,
+                            })),
+                        },
+                        node: {
+                            address: node.address,
+                            port: node.port,
+                            proxyUrl: node.proxyUrl,
+                        },
+                    }),
+                );
             }
 
             await Promise.all(requests);
