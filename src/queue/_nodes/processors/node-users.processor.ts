@@ -13,6 +13,7 @@ import { QUEUES_NAMES } from '@queue/queue.enum';
 
 import { NODES_JOB_NAMES } from '../constants/nodes-job-name.constant';
 import { IAddUserToNodePayload, IRemoveUserFromNodePayload } from '../interfaces';
+import { NodeUserRemovalService } from '../node-user-removal.service';
 
 @Processor(QUEUES_NAMES.NODES.USERS, {
     concurrency: 75,
@@ -23,6 +24,7 @@ export class NodeUsersQueueProcessor extends WorkerHost {
     constructor(
         private readonly axios: AxiosService,
         private readonly queryBus: QueryBus,
+        private readonly nodeUserRemovalService: NodeUserRemovalService,
     ) {
         super();
     }
@@ -123,12 +125,12 @@ export class NodeUsersQueueProcessor extends WorkerHost {
 
     private async handleRemoveUserFromNode(job: Job<IRemoveUserFromNodePayload>) {
         try {
-            const { data, node } = job.data;
+            const { data, node, cleanupInbounds } = job.data;
 
-            const result = await this.axios.deleteUser(data, {
-                address: node.address,
-                port: node.port,
-                proxyUrl: node.proxyUrl,
+            const result = await this.nodeUserRemovalService.removeUsers({
+                data: { users: [{ userId: data.username, hashUuid: data.hashData.vlessUuid }] },
+                node,
+                cleanupInbounds,
             });
 
             if (!result.isOk) {

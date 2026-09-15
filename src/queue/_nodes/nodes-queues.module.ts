@@ -3,6 +3,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { QUEUES_NAMES } from '@queue/queue.enum';
 import { createDomainQueueModule } from '@queue/queue.factory';
 
+import { NodeUserRemovalService } from './node-user-removal.service';
 import { NodesQueuesService } from './nodes-queues.service';
 import {
     NodeHealthCheckQueueProcessor,
@@ -39,4 +40,5 @@ export const NodesQueuesModule = createDomainQueueModule({
     queues,
     service: NodesQueuesService,
     imports: [CqrsModule],
+    extraProviders: [NodeUserRemovalService],
 });

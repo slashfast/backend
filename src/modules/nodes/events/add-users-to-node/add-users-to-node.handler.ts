@@ -150,22 +150,12 @@ export class AddUsersToNodeHandler implements IEventHandler<AddUsersToNodeEvent>
                                 })),
                             },
                             node: nodeConnectionOpts,
+                            cleanupInbounds: node.activeInbounds.map(({ uuid, tag }) => ({
+                                uuid,
+                                tag,
+                            })),
                         }),
                     );
-
-                    for (const inbound of node.activeInbounds) {
-                        pendingRequests.push(
-                            this.nodesQueuesService.removeUsersFromNode({
-                                data: {
-                                    users: usersToRemove.map((user) => ({
-                                        userId: buildClientEmail(user.id, inbound.uuid),
-                                        hashUuid: user.vlessUuid,
-                                    })),
-                                },
-                                node: nodeConnectionOpts,
-                            }),
-                        );
-                    }
                 }
 
                 await Promise.all(pendingRequests);

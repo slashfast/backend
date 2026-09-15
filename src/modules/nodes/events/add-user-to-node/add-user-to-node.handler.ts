@@ -118,10 +118,6 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                 };
 
                 if (filteredData.data.length === 0) {
-                    // We don't know which of the node's inbounds the user was
-                    // previously added to (email is now per-inbound), so we try
-                    // removing from all of them — no-ops on inbounds the user
-                    // was never a member of.
                     await this.nodesQueuesService.removeUserFromNode({
                         data: {
                             username: id.toString(),
@@ -134,23 +130,11 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
                             port: node.port,
                             proxyUrl: node.proxyUrl,
                         },
+                        cleanupInbounds: node.activeInbounds.map(({ uuid, tag }) => ({
+                            uuid,
+                            tag,
+                        })),
                     });
-
-                    for (const inbound of node.activeInbounds) {
-                        await this.nodesQueuesService.removeUserFromNode({
-                            data: {
-                                username: buildClientEmail(id, inbound.uuid),
-                                hashData: {
-                                    vlessUuid: event.prevVlessUuid || vlessUuid,
-                                },
-                            },
-                            node: {
-                                address: node.address,
-                                port: node.port,
-                                proxyUrl: node.proxyUrl,
-                            },
-                        });
-                    }
 
                     continue;
                 }
