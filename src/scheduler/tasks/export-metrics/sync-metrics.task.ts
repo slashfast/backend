@@ -74,6 +74,7 @@ export class SyncMetricsTask {
 
     private async syncNodeMetrics(): Promise<void> {
         const nodesMap = new Map<string, INodeBaseMetricLabels>();
+        const activeInboundTagsByNode = new Map<string, Set<string>>();
 
         try {
             const nodesResponse = await this.queryBus.execute(new GetAllNodesQuery());
@@ -90,6 +91,10 @@ export class SyncMetricsTask {
                     provider_name: node.provider?.name || 'unknown',
                     tags: node.tags.join(','),
                 });
+                activeInboundTagsByNode.set(
+                    node.uuid,
+                    new Set(node.activeInbounds.map((inbound) => inbound.tag)),
+                );
             }
 
             const allMetrics: (Gauge<string> | Counter<string>)[] = [
@@ -118,7 +123,12 @@ export class SyncMetricsTask {
             for (const metric of allMetrics) {
                 const { values } = await metric.get();
                 for (const stat of values) {
-                    if (!nodesMap.has(stat.labels.node_uuid as string)) {
+                    const nodeUuid = stat.labels.node_uuid as string;
+                    const isStaleInbound =
+                        metric === this.nodeInboundOnlineUsers &&
+                        !activeInboundTagsByNode.get(nodeUuid)?.has(stat.labels.tag as string);
+
+                    if (!nodesMap.has(nodeUuid) || isStaleInbound) {
                         metric.remove(stat.labels);
                     }
                 }
@@ -127,6 +137,7 @@ export class SyncMetricsTask {
             this.logger.error(`Error in syncNodeMetrics: ${error}`);
         } finally {
             nodesMap.clear();
+            activeInboundTagsByNode.clear();
         }
     }
 }
