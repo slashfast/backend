@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 
 import { BulkUpsertInboundUsageHistoryHandler } from './commands/bulk-upsert-inbound-usage-history';
-import { CleanOldInboundUsageHistoryHandler } from './commands/clean-old-inbound-usage-history';
 import { ConfigProfileController } from './config-profile.controller';
 import { ConfigProfileService } from './config-profile.service';
 import { ConfigProfileConverter, SnippetsConverter } from './converters';
@@ -24,7 +23,6 @@ import { SnippetsService } from './snippets.service';
         SnippetsService,
         SnippetsRepository,
         BulkUpsertInboundUsageHistoryHandler,
-        CleanOldInboundUsageHistoryHandler,
         ...QUERIES,
     ],
 })

@@ -250,15 +250,6 @@ export class ConfigProfileRepository {
         await this.prisma.tx.$queryRaw(query);
     }
 
-    public async cleanOldInboundUsageRecords(): Promise<number> {
-        const query = Prisma.sql`
-            DELETE FROM user_inbound_usage_history
-            WHERE created_at < NOW() - INTERVAL '14 days'
-        `;
-
-        return await this.prisma.tx.$executeRaw<number>(query);
-    }
-
     public async getInboundUsage(params: {
         inboundUuid: string;
         start: Date;

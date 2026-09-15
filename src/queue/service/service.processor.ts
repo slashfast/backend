@@ -4,7 +4,6 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 
-import { CleanOldInboundUsageHistoryCommand } from '@modules/config-profiles/commands/clean-old-inbound-usage-history';
 import { TruncateNodesUserUsageHistoryCommand } from '@modules/nodes-user-usage-history/commands/truncate-nodes-user-usage-history';
 import { VacuumNodesUserUsageHistoryCommand } from '@modules/nodes-user-usage-history/commands/vacuum-nodes-user-usage-history';
 
@@ -45,7 +44,6 @@ export class ServiceQueueProcessor extends WorkerHost {
             this.logger.log('Resetting tables...');
 
             await this.commandBus.execute(new TruncateNodesUserUsageHistoryCommand());
-            await this.commandBus.execute(new CleanOldInboundUsageHistoryCommand());
 
             await this.commandBus.execute(new VacuumNodesUserUsageHistoryCommand());
 
