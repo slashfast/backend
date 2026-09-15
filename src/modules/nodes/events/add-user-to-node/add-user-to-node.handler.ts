@@ -157,7 +157,12 @@ export class AddUserToNodeHandler implements IEventHandler<AddUserToNodeEvent> {
 
                 await this.nodesQueuesService.addUserToNode({
                     data: filteredData,
-                    legacyUsername: id.toString(),
+                    cleanupUsernames: [
+                        id.toString(),
+                        ...node.activeInbounds.map((inbound) =>
+                            buildClientEmail(id, inbound.uuid),
+                        ),
+                    ],
                     node: {
                         address: node.address,
                         port: node.port,
