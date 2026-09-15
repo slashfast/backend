@@ -113,6 +113,11 @@ export class RecordUserUsageQueueProcessor extends WorkerHost {
 
             // Sum per-inbound rows by user before applying the traffic threshold.
             const perUserBytes = new Map<string, number>();
+            const usageRows: Array<{
+                userId: string;
+                inboundUuid: string | null;
+                totalBytes: number;
+            }> = [];
             const onlineByInbound = new Map<string, Set<string>>();
             const nodeRedisKey = INTERNAL_CACHE_KEYS.NODE_USER_USAGE(nodeId);
             const nodeInboundRedisKey = INTERNAL_CACHE_KEYS.NODE_USER_INBOUND_USAGE(nodeId);
@@ -131,11 +136,20 @@ export class RecordUserUsageQueueProcessor extends WorkerHost {
 
                 const totalBytes = user.downlink + user.uplink;
 
-                if (totalBytes < this.ignoreBelowBytes) {
-                    return;
-                }
-
                 perUserBytes.set(userId, (perUserBytes.get(userId) ?? 0) + totalBytes);
+                usageRows.push({ userId, inboundUuid, totalBytes });
+            });
+
+            for (const [userId, totalBytes] of perUserBytes) {
+                if (totalBytes < this.ignoreBelowBytes) {
+                    perUserBytes.delete(userId);
+                }
+            }
+
+            for (const { userId, inboundUuid, totalBytes } of usageRows) {
+                if (!perUserBytes.has(userId)) {
+                    continue;
+                }
 
                 if (inboundUuid) {
                     pipeline.hincrby(nodeInboundRedisKey, `${userId}:${inboundUuid}`, totalBytes);
@@ -148,7 +162,7 @@ export class RecordUserUsageQueueProcessor extends WorkerHost {
                     }
                     onlineSet.add(userId);
                 }
-            });
+            }
 
             for (const [userId, totalBytes] of perUserBytes) {
                 pipeline.hincrby(nodeRedisKey, userId, totalBytes);
