@@ -46,6 +46,9 @@ export class NodeUsersQueueProcessor extends WorkerHost {
             const { data, node, cleanupUsernames, legacyUsername } = job.data;
             const cleanupInbounds = await this.getCleanupInbounds(job.data);
             const { userId } = parseClientEmail(data.data[0].username);
+
+            // TODO: remove legacy plain userId cleanup in a future
+            // release, once most panel users have upgraded past the identity migration.
             const usernamesToCleanup = new Set([
                 userId,
                 ...cleanupInbounds.map((inbound) => buildClientEmail(BigInt(userId), inbound.uuid)),
