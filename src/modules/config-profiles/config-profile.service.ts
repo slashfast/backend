@@ -1,6 +1,5 @@
 import { Transactional } from '@nestjs-cls/transactional';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import dayjs from 'dayjs';
 
 import { Injectable, Logger } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
@@ -411,16 +410,20 @@ export class ConfigProfileService {
         },
     ): Promise<TResult<GetInboundUsageResponseModel>> {
         try {
-            const { start, end, ...rest } = query;
-            const startDate = dayjs.utc(start).startOf('day').toDate();
-            const endDate = dayjs.utc(end).endOf('day').toDate();
+            const { startDate, endDate } = getDateRangeArrayUtil(
+                new Date(query.start),
+                new Date(query.end),
+            );
+            const { minTotalBytes, limit, cursor } = query;
 
             const [result, onlineByInbound] = await Promise.all([
                 this.configProfileRepository.getInboundUsage({
                     inboundUuid,
                     start: startDate,
                     end: endDate,
-                    ...rest,
+                    minTotalBytes,
+                    limit,
+                    cursor,
                 }),
                 this.getOnlineUsersCountByInboundUuids([inboundUuid]),
             ]);
